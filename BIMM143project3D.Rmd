@@ -1,0 +1,89 @@
+---
+title: "Chronotype - Alzheimer's MR Analysis"
+author: "Dana Nguyen"
+date: "March 17, 2021"
+output: html_document
+---
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document.
+_______________________________
+
+Scientific Question: Is a person's chronotype (morning vs evening) associated with a risk for developing dementia-related conditions? 
+Chronotype has already been associated with an increased risk in all-cause mortality and several conditions such as diabetes and cardiovascular disease (Knutson 2018). Furthermore, risk factors such as diabetes have been implicated in the development of Alzheimer's (Lee et al. 2018).
+_______________________________
+
+Hypothesis: If a person possesess an evening chronotype, their risk for developing Alzheimer's disease will increase. 
+To analyze the relationship, Mendelian Randomization analysis will be performed using data from a GWAS catalog. Chronotype as the exposure variable will be used to evaluate its causal effect on Alzheimer's disease, the outcome variable. P-values and a scatterplot will assign any statistical significance to the association, either supporting or disproving the hypothesis.
+_______________________________
+Below are the package definitions and the code for installing those packages.
+
+1)devtools: A package to help access packages hosted on github (i.e. TwoSampleMR and MRInstruments).
+2)TwoSampleMR: A package to perform Mendelian randomization analysis on GWAS data.
+3)MRInstruments: A package providing instruments for two sample Mendelian randomization.
+
+```{r}
+install.packages("devtools")
+
+library(devtools)
+
+install_github("MRCIEU/TwoSampleMR")
+install_github("MRCIEU/MRInstruments")
+
+library(TwoSampleMR)
+library(MRInstruments)
+```
+__________________________________
+
+Below is the code to access the gwas catalog, while the grepl function specifically searches for the exposure variable of interest, chronotype. A p-value threshold for association is set below 5*10^-8. Lastly the format_data function creates a dataset for analysis.
+```{r}
+#access gwas catalog
+data(gwas_catalog)
+
+#search phenotype of interest, chronotype
+exposure_gwas <- subset(gwas_catalog, grepl("chronotype", Phenotype_simple))
+
+#set p-value threshold for data variance
+exposure_gwas<-exposure_gwas[exposure_gwas$pval<5*10^-8,]
+
+#create data set for exposure variable, chronotype
+exposure_data<-format_data(exposure_gwas)
+```
+____________________________________
+
+Below is the code to extract data for the outcome variable, searching dementia via the grepl function. The SNPs are then extracted from the data selected. In this case, the study used has the ID: ukb-b-14699, which focused on Alzhiemer's disease.
+```{r}
+#access avaible outcome data
+ao<-available_outcomes()
+
+#search for phenotype of interest, dementia
+outcome_gwas <- subset(ao, grepl("dementia", trait))
+
+#extract outcome data from the sttudy ukb-b-14699
+outcome_data <- extract_outcome_data(
+  snps = exposure_data$SNP, outcomes = "ukb-b-14699")
+```
+___________________________________
+
+Below is the code to harmonize the data, making sure that the effect allele is the same for the exposure and outcome.
+```{r}
+#harmonize the exposure and outcome data
+H_data <- harmonise_data(
+  exposure_dat = exposure_data, 
+  outcome_dat = outcome_data
+)
+```
+__________________________________
+Below is the code for producing p-values associated with the exposure variable's causal effect on the outcome variable, as well as a scatterplot to visualize the relationship. Based on the results, the large p-values suggest a non-statistically significant association between the two variables, while the scatterplot does not exhibit any strong trends that would indicate relationship. Therefore, my hypothesis is not supported.
+```{r}
+#analyze cause and effect via Mendelian randomization
+mr_results<-mr(H_data)
+mr_results
+
+#produce a scatterplot to visualize the relationship
+plot1 <- mr_scatter_plot(mr_results, H_data)
+view(plot1)
+```
